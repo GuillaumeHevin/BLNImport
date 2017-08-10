@@ -3,10 +3,10 @@
 /***************************************************************************
  BLNImport
                                  A QGIS plugin
- This plugin open .bln file into a Vector Layer
+ Import .bln files into vector layer
                              -------------------
-        begin                : 2017-07-14
-        copyright            : (C) 2017 by Import .BLN files
+        begin                : 2017-08-10
+        copyright            : (C) 2017 by HEVIN Guillaume
         email                : hevin.guillaume@gmail.com
         git sha              : $Format:%H$
  ***************************************************************************/
@@ -31,5 +31,5 @@ def classFactory(iface):  # pylint: disable=invalid-name
     :type iface: QgsInterface
     """
     #
-    from .bnl_import import BLNImport
+    from .bln_import import BLNImport
     return BLNImport(iface)
