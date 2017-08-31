@@ -184,15 +184,14 @@ class BLNImport:
         # remove the toolbar
         del self.toolbar
 
-
     def select_input_file(self):
         if self.dlg.Edit.text() == str():
             dialog = QFileDialog(self.dlg)
             dialog.setWindowTitle('Select .bln file:')
             dialog.setNameFilter('*bln')
-            dialog.setFileMode(QFileDialog.ExistingFile)
+            dialog.setFileMode(QFileDialog.ExistingFiles)
             if dialog.exec_() == QDialog.Accepted:
-                filename = dialog.selectedFiles()[0]
+                filename = dialog.selectedFiles()
             else:
                 filename = str()
                 
@@ -203,105 +202,133 @@ class BLNImport:
 
     def run(self):
         """Run method that performs all the real work"""
-        
-        path = self.select_input_file()
-        # show the dialog
-        if path == str():
-            return
-        #Read de bln file
-        f = open(path , "r")
-
-
-        bln_file = f.readlines()
-        filename = []
-        
-        f.close()
-        
-        # Read the name of the file
-        
-        filename = str()
-        l = -5
-        letter = path[l]
-        while letter != "/":
-            filename += letter
-            l -= 1
-            letter = path[l]
-
-        filename = filename[::-1]
-
-        
-        nbre_polygon = 1
-        nbre_polyline = 1
-        
-        b = 0
-        rd_lines = 0
+        names = self.select_input_file()
         
         layer =  QgsVectorLayer("Polygon","","memory")             
         crs = layer.crs().authid()
         
-        
-        feats_poly = []
-        feats_seg = []
-
-        
-        
-        
-        while len(bln_file) > 1 :
+        for i in range(len(names)):
+            path = names[i]
+            # show the dialog
+            if path == str():
+                return
+            #Read de bln file
+            f = open(path , "r")
+    
+    
+            bln_file = f.readlines()
+            filename = []
+            
+            f.close()
+            
+            # Read the name of the file
+            path = path[:-4]
+            
+            filename = str()
+    
+            while path[-1] != "/":
+                filename += path[-1]
+                path = path[:-1]
+    
+            filename = filename[::-1]
+    
+            
+            nbre_polygon = 1
+            nbre_polyline = 1
+            
+            b = 0
+            rd_lines = 0
             
            
             
-            rd_lines, b, name = self.read_data_ligne1(bln_file[0])
-            bln_file = bln_file[1:]
             
-            x, y = self.read_data(bln_file,rd_lines) 
-            bln_file = bln_file[rd_lines:]
-            
+            feats_poly = []
+            feats_seg = []
+    
             
             
-            if x[0] ==  x[-1] and y[0] == y[-1]:
-                nbre_polygon, feats_poly = self.save_layer_polygon(x, y, rd_lines, nbre_polygon,crs,feats_poly,name,b)
+            
+            while len(bln_file) > 1 :
                 
-            
-            else:
-                nbre_polyline, feats_seg = self.save_layer_polyline(x, y, rd_lines, nbre_polyline,crs, feats_seg,name,b)
-              
+               
                 
-        
-        
-        if feats_poly != []:
-            #Save Polygon
-            v_layer_poly = QgsVectorLayer('Polygon?crs=' + crs, filename + "_polygon", "memory")            
+                rd_lines, b, name = self.read_data_ligne1(bln_file[0])
+                bln_file = bln_file[1:]
+                
+                x, y = self.read_data(bln_file,rd_lines) 
+                bln_file = bln_file[rd_lines:]
+                
+                
+                
+                if x[0] ==  x[-1] and y[0] == y[-1]:
+                    nbre_polygon, feats_poly = self.save_layer_polygon(x, y, rd_lines, nbre_polygon,crs,feats_poly,name,b)
+                    
+                
+                else:
+                    nbre_polyline, feats_seg = self.save_layer_polyline(x, y, rd_lines, nbre_polyline,crs, feats_seg,name,b)
+                  
+                    
             
-            prov = v_layer_poly.dataProvider()
             
-            prov.addAttributes([QgsField("Number", QVariant.Int),QgsField("Name", QVariant.String),QgsField("Blank", QVariant.Int)])
-            v_layer_poly.updateFields()
+            if feats_poly != []:
+                #Save Polygon
+                v_layer_poly = QgsVectorLayer('Polygon?crs=' + crs, filename + "_polygon", "memory")            
+                
+                prov = v_layer_poly.dataProvider()
+                
+                prov.addAttributes([QgsField("Number", QVariant.Int),QgsField("Name", QVariant.String),QgsField("Blank", QVariant.Int)])
+                v_layer_poly.updateFields()
+                
+                #values = [QVariant(range(1,nbre_polygon)), QVariant(names_poly)]
+                #v_layer_poly.setAttributes(values)
+                
+                v_layer_poly.startEditing()
+                prov.addFeatures(feats_poly)
+                v_layer_poly.commitChanges()
+                
+                path_shp = path+filename + '_polygon.shp'
+                print path_shp
+                v_layer_write =QgsVectorFileWriter.writeAsVectorFormat(v_layer_poly,path_shp,'utf-8',None)
+                
+                layer_shp = QgsVectorLayer(path_shp,filename + "_polygon", "ogr")
+                
+                if not layer_shp.isValid():
+                  print "Layer failed to load!"
+                
+                else:
+                    print "Layer was loaded successfully!"
+                    
+                QgsMapLayerRegistry.instance().addMapLayer(layer_shp)
+           
+           
+           
+           
+           
+            if feats_seg != []:
+                v_layer_seg = QgsVectorLayer('LineString?crs=' + crs, filename + "_polyline", "memory")
+                prov = v_layer_seg.dataProvider()
+                prov.addAttributes([QgsField("Number", QVariant.Int),QgsField("Name", QVariant.String),QgsField("Blank", QVariant.Int)])
+                v_layer_seg.updateFields()
+                
+                v_layer_seg.startEditing()
+                prov.addFeatures(feats_seg)
+                v_layer_seg.commitChanges()
+                
+                
+                path_shp = path+filename + '_polyline.shp'
+                print path_shp
+                v_layer_write =QgsVectorFileWriter.writeAsVectorFormat(v_layer_seg,path_shp,'utf-8',None)
+                
+                layer_shp = QgsVectorLayer(path_shp,filename + "_polyline", "ogr")
+                
+                if not layer_shp.isValid():
+                  print "Layer failed to load!"
+                
+                else:
+                    print "Layer was loaded successfully!"
+                    
+                QgsMapLayerRegistry.instance().addMapLayer(layer_shp)
             
-            #values = [QVariant(range(1,nbre_polygon)), QVariant(names_poly)]
-            #v_layer_poly.setAttributes(values)
-            
-            v_layer_poly.startEditing()
-            prov.addFeatures(feats_poly)
-            v_layer_poly.commitChanges()
- 
-            QgsMapLayerRegistry.instance().addMapLayer(v_layer_poly)
-       
-       
-       
-       
-       
-        if feats_seg != []:
-            v_layer_seg = QgsVectorLayer('LineString?crs=' + crs, filename + "_polyline", "memory")
-            prov = v_layer_seg.dataProvider()
-            prov.addAttributes([QgsField("Number", QVariant.Int),QgsField("Name", QVariant.String),QgsField("Blank", QVariant.Int)])
-            v_layer_seg.updateFields()
-            
-            v_layer_seg.startEditing()
-            prov.addFeatures(feats_seg)
-            v_layer_seg.commitChanges()
- 
-            QgsMapLayerRegistry.instance().addMapLayer(v_layer_seg)
-        
             
             
     def read_data_ligne1(self,ligne):        #read data in .bnl file, and append it in list
@@ -486,6 +513,11 @@ class BLNImport:
         
         return(nbre_polyline, feats_seg)
   
+
+   
+        
+        
+            
 
    
         
